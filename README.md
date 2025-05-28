@@ -47,8 +47,8 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-> ⚠️ **Note:** Installing `dlib` requires **CMake** and a compatible C++ compiler. Use WSL, a Linux distribution, or Raspberry Pi for better compatibility.
-
+> ⚠️ **Note:** Installing `dlib` requires **CMake** and a compatible C++ compiler.
+> 
 ### Other Prerequisites
 
 - Python 3.8 or higher  
@@ -57,7 +57,7 @@ pip install -r requirements.txt
 - Required files:
   - `shape_predictor_68_face_landmarks.dat` (Dlib facial landmark model)
   - `alarm.wav` (alert sound)
-  - Trained YOLO model (`best.pt`)
+  - Trained YOLO model (`best.pt`) .pt .tflite
   - YOLO tracking configuration file: `botsort.yaml` (if using `track()`)
 
 ---
