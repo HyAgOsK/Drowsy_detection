@@ -2,3 +2,4 @@ dlib
 mediapipe
 ultralytics
 opencv-python
+edge-tpu-silva
