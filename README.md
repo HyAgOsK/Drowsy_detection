@@ -47,6 +47,19 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Active the default performace EdgeTPU Coral USB
+
+```bash
+silvatpu-linux-setup
+```
+
+Activate the `max` performace of EdgeTPU Coral USB
+
+```bash
+silvatpu-linux-setup --speed max
+
+```
+
 > ⚠️ **Note:** Installing `dlib` requires **CMake** and a compatible C++ compiler.
 > 
 ### Other Prerequisites
