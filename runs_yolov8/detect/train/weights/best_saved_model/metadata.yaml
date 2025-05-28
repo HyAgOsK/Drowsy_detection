@@ -1,0 +1,18 @@
+description: Ultralytics best model trained on /home/linux/TP555_analise_sonolencia/deteccao-de-sonolencia-artigo-1/data.yaml
+author: Ultralytics
+date: '2025-05-13T11:07:25.337171'
+version: 8.3.15
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: awake
+  1: drowsy
+  2: phone
+  3: seatbelt
+  4: smoking
