@@ -30,7 +30,7 @@ print("Modelo na GPU:", next(yolo_model.model.parameters()).is_cuda)
 # Variáveis de controle
 alert_triggered = False
 blinking_threshold = 4.5
-eye_frame_threshold = 7
+eye_frame_threshold = 10
 leaning_threshold_frames = 10
 audio_path = "./alarm.wav"
 class_counts = defaultdict(int)
@@ -102,7 +102,7 @@ def process_frame(frame):
             frames_with_closed_eyes += 1
         else:
             frames_with_closed_eyes = 0
-
+        print("distancia olhos fechados 4.5 pra mais", blinking_ratio)
         if frames_with_closed_eyes >= eye_frame_threshold:
             total_alert_score += 1
             cv2.putText(frame, f"ALERTA: Olhos fechados ({frames_with_closed_eyes})",
@@ -122,7 +122,7 @@ def process_frame(frame):
         r_point = np.array([r_shoulder.x, r_shoulder.y, r_shoulder.z])
         mid = midpoint2(l_point, r_point)
         dist = np.linalg.norm(nose_point - mid)
-        print("distancia dos ombros para o nariz", dist)
+        print("distancia dos ombros para o nariz 2.9 pra mais", dist)
         if dist > 2.9:
             frames_leaning_forward += 1
         else:

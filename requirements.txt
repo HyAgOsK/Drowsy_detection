@@ -1,0 +1,4 @@
+dlib
+mediapipe
+ultralytics
+opencv-python
