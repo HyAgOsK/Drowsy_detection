@@ -11,10 +11,6 @@ import torch
 import time
 
 
-# Verifica se a GPU está disponível e define o dispositivo
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Usando dispositivo: {device}")
-
 # captura de um video na pasta
 cap = cv2.VideoCapture(0)
 yolo_model = YOLO("../runs_yolov5/detect/train/weights/best.pt")
@@ -23,9 +19,6 @@ pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
-
-yolo_model.to(device)
-print("Modelo na GPU:", next(yolo_model.model.parameters()).is_cuda)
 
 # Variáveis de controle
 alert_triggered = False
@@ -63,7 +56,7 @@ def process_frame(frame):
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     pose_results = pose.process(rgb)
-    yolo_results = yolo_model.track(frame, stream=True, conf=0.25, verbose=False, device=device, tracker="./botsort.yaml")
+    yolo_results = yolo_model.track(frame, stream=True, conf=0.25, verbose=False, tracker="./botsort.yaml")
     total_alert_score = 0
 
     # === YOLO detections ===
