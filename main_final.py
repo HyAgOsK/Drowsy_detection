@@ -10,27 +10,32 @@ from ultralytics import YOLO
 import torch
 import time
 
-
-# captura de um video na pasta
+# Inicializações
 cap = cv2.VideoCapture(0)
-yolo_model = YOLO("../runs_yolov5/detect/train/weights/best.pt")
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
-mp_drawing = mp.solutions.drawing_utils
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("./shape_predictor_68_face_landmarks.dat")
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+yolo_model = YOLO("best.pt")  # substitua com o seu modelo YOLO
 
-# Variáveis de controle
-alert_triggered = False
-blinking_threshold = 4.5
-eye_frame_threshold = 10
-leaning_threshold_frames = 10
-audio_path = "./alarm.wav"
+# Parâmetros de limiar
+BLINK_RATIO_THRESHOLD = 4.5
+POSTURE_DIST_THRESHOLD = 2.9
+FRAME_THRESHOLD = 10  # X frames consecutivos
+
+# Sons
+audio_path = "alert.wav"
+
+# Estado
+state = {
+    "frames_with_closed_eyes": 0,
+    "frames_leaning_forward": 0,
+    "alert_triggered": False
+}
+
 class_counts = defaultdict(int)
-frames_with_closed_eyes = 0
-frames_leaning_forward = 0
 
-# --- Funções auxiliares ---
+# Funções auxiliares
 def play_alert_sound():
     threading.Thread(target=playsound, args=(audio_path,), daemon=True).start()
 
@@ -41,115 +46,122 @@ def midpoint2(p1, p2):
     return float((p1[0] + p2[0]) / 2)
 
 def get_blinking_ratio(eye_points, facial_landmarks):
-    left_point = (facial_landmarks.part(eye_points[0]).x, facial_landmarks.part(eye_points[0]).y)
-    right_point = (facial_landmarks.part(eye_points[3]).x, facial_landmarks.part(eye_points[3]).y)
-    center_top = midpoint(facial_landmarks.part(eye_points[1]), facial_landmarks.part(eye_points[2]))
-    center_bottom = midpoint(facial_landmarks.part(eye_points[5]), facial_landmarks.part(eye_points[4]))
-    hor_line_length = hypot((left_point[0] - right_point[0]), (left_point[1] - right_point[1]))
-    ver_line_length = hypot((center_top[0] - center_bottom[0]), (center_top[1] - center_bottom[1]))
-    return hor_line_length / ver_line_length
+    left = (facial_landmarks.part(eye_points[0]).x, facial_landmarks.part(eye_points[0]).y)
+    right = (facial_landmarks.part(eye_points[3]).x, facial_landmarks.part(eye_points[3]).y)
+    top = midpoint(facial_landmarks.part(eye_points[1]), facial_landmarks.part(eye_points[2]))
+    bottom = midpoint(facial_landmarks.part(eye_points[5]), facial_landmarks.part(eye_points[4]))
+    hor = hypot(left[0] - right[0], left[1] - right[1])
+    ver = hypot(top[0] - bottom[0], top[1] - bottom[1])
+    return hor / ver
 
-# --- Função principal de processamento ---
+# Processamento do frame
 def process_frame(frame):
-    global frames_with_closed_eyes, frames_leaning_forward, alert_triggered
-
+    global state
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     pose_results = pose.process(rgb)
     yolo_results = yolo_model.track(frame, stream=True, conf=0.25, verbose=False, tracker="./botsort.yaml")
-    total_alert_score = 0
 
-    # === YOLO detections ===
-    classes_no_frame = set()
+    total_alert_score = 0
+    classes_detected = set()
+
+    # === YOLO ===
     for result in yolo_results:
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            class_name = yolo_model.names[int(box.cls[0])]
+            cls_id = int(box.cls[0])
+            class_name = yolo_model.names[cls_id]
             confidence = box.conf[0]
 
-            classes_no_frame.add(class_name)
+            classes_detected.add(class_name)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
             cv2.putText(frame, f"{class_name} {confidence:.2f}", (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-    for cls in classes_no_frame:
-        if cls in ["drowsy", "phone", "smoking"]:
+    # Comitê YOLO
+    for cls in ["drowsy", "phone", "smoking"]:
+        if cls in classes_detected:
             class_counts[cls] += 1
-            total_alert_score += 1
-            cv2.putText(frame, f"ALERTA: {cls.upper()}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            if class_counts[cls] == 10:
-                threading.Thread(target=play_alert_sound, daemon=True).start()
-                pass
-        elif cls == "seatbelt":
-            class_counts["seatbelt_ok"] += 1
+            if class_counts[cls] >= FRAME_THRESHOLD:
+                total_alert_score += 1
+                cv2.putText(frame, f"YOLO ALERTA: {cls.upper()}", (50, 50 + 30 * list(classes_detected).index(cls)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                play_alert_sound()
 
-    # === Dlib blinking detection ===
+    if "seatbelt" not in classes_detected:
+        class_counts["seatbelt"] += 1
+        if class_counts["seatbelt"] >= FRAME_THRESHOLD:
+            cv2.putText(frame, f"ALERTA: Cinto de segurança não detectado",
+                        (50, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            play_alert_sound()
+    else:
+        class_counts["seatbelt"] = 0
+
+    # === Detecção de olhos fechados (BR) ===
     faces = detector(gray)
     for face in faces:
         landmarks = predictor(gray, face)
-        left_eye_ratio = get_blinking_ratio([36, 37, 38, 39, 40, 41], landmarks)
-        right_eye_ratio = get_blinking_ratio([42, 43, 44, 45, 46, 47], landmarks)
-        blinking_ratio = (left_eye_ratio + right_eye_ratio) / 2
+        left_eye = get_blinking_ratio([36, 37, 38, 39, 40, 41], landmarks)
+        right_eye = get_blinking_ratio([42, 43, 44, 45, 46, 47], landmarks)
+        blink_ratio = (left_eye + right_eye) / 2
+        print("BR:", blink_ratio)
 
-        if blinking_ratio > blinking_threshold:
-            frames_with_closed_eyes += 1
+        if blink_ratio > BLINK_RATIO_THRESHOLD:
+            state["frames_with_closed_eyes"] += 1
         else:
-            frames_with_closed_eyes = 0
-        print("distancia olhos fechados 4.5 pra mais", blinking_ratio)
-        if frames_with_closed_eyes >= eye_frame_threshold:
-            total_alert_score += 1
-            cv2.putText(frame, f"ALERTA: Olhos fechados ({frames_with_closed_eyes})",
-                        (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            if frames_with_closed_eyes == 10:
-                threading.Thread(target=play_alert_sound, daemon=True).start()
-                pass
+            state["frames_with_closed_eyes"] = 0
 
-    # === MediaPipe pose: postura ===
+        if state["frames_with_closed_eyes"] >= FRAME_THRESHOLD:
+            total_alert_score += 1
+            cv2.putText(frame, "ALERTA: Olhos fechados", (50, 250),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+    # === Detecção de postura (DSC) ===
     if pose_results.pose_landmarks:
         nose = pose_results.pose_landmarks.landmark[0]
         l_shoulder = pose_results.pose_landmarks.landmark[11]
         r_shoulder = pose_results.pose_landmarks.landmark[12]
 
-        nose_point = np.array([nose.x, nose.y, nose.z])
-        l_point = np.array([l_shoulder.x, l_shoulder.y, l_shoulder.z])
-        r_point = np.array([r_shoulder.x, r_shoulder.y, r_shoulder.z])
-        mid = midpoint2(l_point, r_point)
-        dist = np.linalg.norm(nose_point - mid)
-        print("distancia dos ombros para o nariz 2.9 pra mais", dist)
-        if dist > 2.9:
-            frames_leaning_forward += 1
+        nose_pt = np.array([nose.x, nose.y, nose.z])
+        mid_pt = np.array([
+            (l_shoulder.x + r_shoulder.x) / 2,
+            (l_shoulder.y + r_shoulder.y) / 2,
+            (l_shoulder.z + r_shoulder.z) / 2,
+        ])
+
+        dist = np.linalg.norm(nose_pt - mid_pt)
+        print("DSC:", dist)
+
+        if dist > POSTURE_DIST_THRESHOLD:
+            state["frames_leaning_forward"] += 1
         else:
-            frames_leaning_forward = 0
+            state["frames_leaning_forward"] = 0
 
-        if frames_leaning_forward >= leaning_threshold_frames:
+        if state["frames_leaning_forward"] >= FRAME_THRESHOLD:
             total_alert_score += 1
-            cv2.putText(frame, f"ALERTA: Inclinacao ({frames_leaning_forward})",
-                        (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            if frames_leaning_forward == 10:
-                threading.Thread(target=play_alert_sound, daemon=True).start()
-                pass
+            cv2.putText(frame, "ALERTA: Postura inclinada", (50, 300),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-    # === Comitê de decisão ===
-    if total_alert_score >= 2:
-        if not alert_triggered:
-            play_alert_sound()
-            alert_triggered = True
-    else:
-        alert_triggered = False
+    # Comitê de decisão final
+    if total_alert_score >= 2 and not state["alert_triggered"]:
+        play_alert_sound()
+        state["alert_triggered"] = True
+    elif total_alert_score < 2:
+        state["alert_triggered"] = False
 
     return frame
 
-# --- Loop principal ---
+# === Loop principal ===
 while cap.isOpened():
     start_time = time.time()
     ret, frame = cap.read()
-    
     if not ret:
         break
-    #frame_resized = cv2.resize(frame, (640, 640))
+
     frame = process_frame(frame)
-    cv2.imshow("Alerta - Comitê", frame)
-    print(f"FPS: {1/(time.time() - start_time):.2f}")
+    cv2.imshow("Monitoramento de Fadiga", frame)
+    print(f"FPS: {1 / (time.time() - start_time):.2f}")
+
     if cv2.waitKey(1) & 0xFF == 27:
         break
 
