@@ -14,7 +14,7 @@ EYE_CLOSED_THRESHOLD = 4.5
 POSTURE_DISTANCE_THRESHOLD = 2.9
 ALERT_FRAME_THRESHOLD = 10
 ALERT_SOUND_PATH = "alert.wav"
-YOLO_MODEL_PATH = "/home/hyago/Desktop/Sleep_app/Drowsy_detection/runs_yolov5/detect/train/weights/best.pt"
+YOLO_MODEL_PATH = "./runs_yolov5/detect/train/weights/best.pt" # Use tflite (tensorflow lite or edgetpu), onnx, or pytorch model 
 DLIB_LANDMARK_PATH = "shape_predictor_68_face_landmarks.dat"
 
 # ========== INICIALIZAÃ‡ÃƒO ==========
