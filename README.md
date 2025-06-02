@@ -82,7 +82,7 @@ project/
 │
 ├── alarm.wav
 ├── shape_predictor_68_face_landmarks.dat
-├── main.py                    # main script
+├── main_final.py                    # main script
 ├── botsort.yaml              # YOLO tracker configuration
 ├── runs_yolov5/
 │   └── detect/
