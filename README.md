@@ -92,6 +92,7 @@ project/
 │               ├── model_float32.tflite
 │               ├── model_int8_edgetpu.tflite
 │               └── ...
+├── samples video test (.mp4)
 ```
 
 ---
