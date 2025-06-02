@@ -102,26 +102,27 @@ project/
 Run the main script:
 
 ```bash
-python main.py
+cd Drowsy_detection/
+
+streamlit run main_final.py
 ```
 
-A window will open showing the webcam feed and displaying visual and audible alerts in real time.
+Opening a browser window at the IP address or localhost will display the webcam feed, along with real-time visual and audible alerts.
 
 ---
 
 ## 🧠 Alert Logic
 
-- **Closed eyes** for 10 consecutive frames (Blink Ratio BR > 4.5) **and** YOLO detects `drowsy` ➜ Alert
-- **Head leaning forward** (DSC > 2.9) for 10 frames **and** YOLO detects `drowsy` ➜ Alert
-- YOLO detects `drowsy`, `phone`, or `smoking` for 10 frames ➜ Alert
+- **Closed eyes** for 30 consecutive frames (Blink Ratio BR > 4.5) **and** YOLO detects `drowsy` ➜ Alert
+- **Head leaning forward** (DSC > 1.2) for 30 frames **and** YOLO detects `drowsy` ➜ Alert
+- YOLO detects `drowsy`, `phone`, or `smoking` for 30 frames ➜ Alert
 - Any **combination of 2 or more active alerts at the same time** ➜ Triggers an audible alert once
 
 ---
 
 ## 📈 Performance
 
-- **FPS** displayed in real-time in the terminal  
-- Uses **GPU (CUDA)** when available  
+- **FPS** displayed in real-time in app streamlit 
 - Compatible with **EdgeTPU** when a suitable `.tflite` model is loaded in `main.py`
 
 ---
