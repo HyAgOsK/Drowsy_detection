@@ -15,25 +15,20 @@ import logging
 import psutil
 import gc
 
-# ========== CONFIGURAÃ‡Ã•ES AVANÃ‡ADAS ==========
 @dataclass
 class PerformanceConfig:
     """ConfiguraÃ§Ãµes de performance e otimizaÃ§Ã£o"""
-    # ResoluÃ§Ãµes disponÃ­veis
     AVAILABLE_RESOLUTIONS: Dict[str, Tuple[int, int]] = None
     
-    # ConfiguraÃ§Ãµes YOLO
     YOLO_CONFIDENCE: float = 0.25
     YOLO_IOU_THRESHOLD: float = 0.45
     YOLO_MAX_DETECTIONS: int = 5
     YOLO_HALF_PRECISION: bool = False
     
-    # ConfiguraÃ§Ãµes de processamento
-    FRAME_SKIP: int = 1  # Processar 1 a cada N frames
+    FRAME_SKIP: int = 1  
     USE_MULTITHREADING: bool = True
     MEMORY_OPTIMIZATION: bool = True
     
-    # ConfiguraÃ§Ãµes de display
     SHOW_CONFIDENCE: bool = True
     SHOW_CLASS_NAMES: bool = True
     BBOX_THICKNESS: int = 2
@@ -71,7 +66,6 @@ class Config:
     MODEL_RESOLUTION: Tuple[int, int] = (640, 640)
     MONITORED_CLASSES: List[str] = None
     
-    # ConfiguraÃ§Ãµes de performance
     performance: PerformanceConfig = None
 
     def __post_init__(self):
@@ -118,7 +112,6 @@ class AlertSystem:
     def _initialize_models(self):
         """Inicializa todos os modelos necessÃ¡rios"""
         try:
-            # MediaPipe Pose
             self.mp_pose = mp.solutions.pose
             self.pose = self.mp_pose.Pose(
                 static_image_mode=False,
@@ -128,14 +121,11 @@ class AlertSystem:
                 min_tracking_confidence=0.5
             )
 
-            # Dlib
             self.detector = dlib.get_frontal_face_detector()
             self.predictor = dlib.shape_predictor(self.config.DLIB_LANDMARK_PATH)
 
-            # YOLO com configuraÃ§Ãµes avanÃ§adas
             self.yolo_model = YOLO(self.config.YOLO_MODEL_PATH)
             
-            # Configurar half precision se suportado
             if self.config.performance.YOLO_HALF_PRECISION:
                 try:
                     self.yolo_model.half()
@@ -155,7 +145,7 @@ class AlertSystem:
             except Exception as e:
                 logging.warning(f"Erro ao tocar som: {e}")
 
-        if threading.active_count() < 10:  # Limita threads de Ã¡udio
+        if threading.active_count() < 10: 
             threading.Thread(target=_play, daemon=True).start()
 
     @staticmethod
@@ -187,7 +177,6 @@ class AlertSystem:
         detection_count = 0
 
         try:
-            # ConfiguraÃ§Ãµes avanÃ§adas do YOLO
             results = self.yolo_model.predict(
                 frame,
                 stream=True,
@@ -210,20 +199,17 @@ class AlertSystem:
                         classes_seen_this_frame.add(class_name)
                         detection_count += 1
 
-                        # Cores por tipo de detecÃ§Ã£o
                         color_map = {
-                            "drowsy": (0, 0, 255),      # Vermelho
-                            "phone": (255, 165, 0),     # Laranja
-                            "smoking": (255, 0, 255),   # Magenta
-                            "seatbelt": (0, 255, 0)     # Verde
+                            "drowsy": (0, 0, 255),      
+                            "phone": (255, 165, 0),     
+                            "smoking": (255, 0, 255),  
+                            "seatbelt": (0, 255, 0)     
                         }
                         color = color_map.get(class_name, (255, 255, 255))
 
-                        # Desenha bounding box com espessura configurÃ¡vel
                         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 
                                     self.config.performance.BBOX_THICKNESS)
                         
-                        # Label com informaÃ§Ãµes configurÃ¡veis
                         label_parts = []
                         if self.config.performance.SHOW_CLASS_NAMES:
                             label_parts.append(class_name)
@@ -232,7 +218,6 @@ class AlertSystem:
                         
                         label = " ".join(label_parts)
                         if label:
-                            # Fundo para o texto
                             (text_width, text_height), _ = cv2.getTextSize(
                                 label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
                             cv2.rectangle(frame, (x1, y1 - text_height - 10), 
@@ -240,10 +225,8 @@ class AlertSystem:
                             cv2.putText(frame, label, (x1, y1 - 5), 
                                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-            # Atualiza mÃ©tricas
             self.metrics.detection_count = detection_count
 
-            # Processa classes monitoradas
             for cls in self.config.MONITORED_CLASSES:
                 if cls in classes_seen_this_frame:
                     self.class_counts[cls] += 1
@@ -357,43 +340,34 @@ class AlertSystem:
         """Processa um frame completo com otimizaÃ§Ãµes"""
         start_time = time.time()
         
-        # ConversÃµes de cor
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         all_alerts = []
 
-        # YOLO Detection
         classes_seen, yolo_alerts = self.process_yolo_detection(frame)
         all_alerts.extend(yolo_alerts)
 
-        # OtimizaÃ§Ã£o: pular algumas detecÃ§Ãµes em frames alternados
         frame_skip = self.config.performance.FRAME_SKIP
         if self.metrics.frame_count % frame_skip == 0:
-            # Seatbelt Detection
             seatbelt_alerts = self.process_seatbelt_detection(classes_seen)
             all_alerts.extend(seatbelt_alerts)
 
-            # Eye Detection
             eye_alerts = self.process_eye_detection(gray_frame)
             all_alerts.extend(eye_alerts)
 
-            # Posture Detection
             posture_alerts = self.process_posture_detection(rgb_frame)
             all_alerts.extend(posture_alerts)
 
-        # Atualiza mÃ©tricas de performance
         processing_time = time.time() - start_time
         self.metrics.processing_time_ms = processing_time * 1000
         self.metrics.fps_current = 1 / (processing_time + 1e-6)
         self.metrics.frame_count += 1
         
-        # Calcula FPS mÃ©dio
         if self.metrics.frame_count > 1:
             self.metrics.fps_average = (self.metrics.fps_average * (self.metrics.frame_count - 1) + 
                                       self.metrics.fps_current) / self.metrics.frame_count
 
-        # OtimizaÃ§Ã£o de memÃ³ria
         if self.config.performance.MEMORY_OPTIMIZATION and self.metrics.frame_count % 100 == 0:
             gc.collect()
 
@@ -410,7 +384,6 @@ class StreamlitApp:
         with st.sidebar:
             st.header("âš™ï¸ ConfiguraÃ§Ãµes AvanÃ§adas")
             
-            # === CONFIGURAÃ‡Ã•ES DE RESOLUÃ‡ÃƒO ===
             st.subheader("ðŸ“ ResoluÃ§Ã£o e Performance")
             
             resolution_options = list(self.config.performance.AVAILABLE_RESOLUTIONS.keys())
@@ -421,7 +394,6 @@ class StreamlitApp:
             )
             self.config.MODEL_RESOLUTION = self.config.performance.AVAILABLE_RESOLUTIONS[selected_resolution]
             
-            # === CONFIGURAÃ‡Ã•ES YOLO ===
             st.subheader("ðŸŽ¯ ConfiguraÃ§Ãµes YOLO")
             
             col1, col2 = st.columns(2)
@@ -438,7 +410,6 @@ class StreamlitApp:
                 "MÃ¡x. DetecÃ§Ãµes", 10, 100, 50, 5
             )
             
-            # === OTIMIZAÃ‡Ã•ES ===
             st.subheader("âš¡ OtimizaÃ§Ãµes")
             
             self.config.performance.FRAME_SKIP = st.slider(
@@ -455,7 +426,6 @@ class StreamlitApp:
                     "OtimizaÃ§Ã£o MemÃ³ria", value=True
                 )
             
-            # === CONFIGURAÃ‡Ã•ES DE DISPLAY ===
             st.subheader("ðŸŽ¨ Display")
             
             col1, col2 = st.columns(2)
@@ -471,7 +441,6 @@ class StreamlitApp:
                     "Espessura Bbox", 1, 5, 2
                 )
             
-            # === CONFIGURAÃ‡Ã•ES ORIGINAIS ===
             st.subheader("ðŸ”§ ConfiguraÃ§Ãµes de DetecÃ§Ã£o")
             
             self.config.EYE_CLOSED_THRESHOLD = st.slider(
@@ -521,10 +490,8 @@ class StreamlitApp:
     def run(self):
         st.title("ðŸ›¡ï¸ Sistema de Alerta Inteligente - ConfiguraÃ§Ãµes AvanÃ§adas")
         
-        # Sidebar com configuraÃ§Ãµes
         self.create_sidebar_controls()
         
-        # Inicializar sistema de alerta com novas configuraÃ§Ãµes
         if self.alert_system is None or st.sidebar.button("ðŸ”„ Aplicar ConfiguraÃ§Ãµes"):
             try:
                 self.alert_system = AlertSystem(self.config)
@@ -533,7 +500,6 @@ class StreamlitApp:
                 st.error(f"âŒ Erro ao aplicar configuraÃ§Ãµes: {e}")
                 return
         
-        # Controles principais
         col1, col2, col3 = st.columns(3)
         with col1:
             run = st.button("â–¶ï¸ Iniciar Sistema", type="primary")
@@ -546,11 +512,9 @@ class StreamlitApp:
             self.alert_system.metrics = PerformanceMetrics()
             st.rerun()
         
-        # ConfiguraÃ§Ãµes de display
         show_video = st.checkbox("ðŸ“¹ Exibir vÃ­deo", value=True)
         show_performance = st.checkbox("ðŸ“Š Dashboard Performance", value=True)
         
-        # Containers para displays
         if show_performance:
             performance_container = st.container()
         
@@ -571,7 +535,6 @@ class StreamlitApp:
             st.error("âŒ Erro ao abrir vÃ­deo")
             return
 
-        # Configura mÃ©tricas
         self.alert_system.metrics.resolution = f"{self.config.MODEL_RESOLUTION[0]}x{self.config.MODEL_RESOLUTION[1]}"
         
         try:
@@ -585,17 +548,13 @@ class StreamlitApp:
                     st.info("ðŸ“¹ Fim do vÃ­deo")
                     break
 
-                # Redimensiona frame
                 frame = cv2.resize(frame, self.config.MODEL_RESOLUTION,
                                  interpolation=cv2.INTER_LINEAR)
 
-                # Processa frame
                 processed_frame, alerts = self.alert_system.process_frame(frame)
                 
-                # Atualiza mÃ©tricas de sistema
                 self.alert_system.metrics.update_memory_cpu()
 
-                # Atualiza displays
                 if show_video:
                     frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
                     frame_placeholder.image(frame_rgb, channels="RGB",
@@ -603,17 +562,14 @@ class StreamlitApp:
                                                  f"ConfianÃ§a: {self.config.performance.YOLO_CONFIDENCE} | "
                                                  f"IoU: {self.config.performance.YOLO_IOU_THRESHOLD}")
 
-                # Dashboard de performance
                 if show_performance and performance_placeholder:
                     with performance_placeholder.container():
                         self.create_performance_dashboard(self.alert_system.metrics)
 
-                # Mostra alertas
                 with alert_placeholder.container():
                     if alerts:
                         st.subheader("ðŸ“¢ Status do Sistema")
                         
-                        # Organiza alertas por tipo
                         alert_types = {"ðŸš¨ ALERTAS CRÃTICOS": [], "â„¹ï¸ MONITORAMENTO": []}
                         
                         for msg, score in alerts:
@@ -630,7 +586,6 @@ class StreamlitApp:
                     else:
                         pass
 
-                # Controle de velocidade
                 time.sleep(0.01)
 
         except KeyboardInterrupt:
@@ -642,12 +597,9 @@ class StreamlitApp:
             if self.config.performance.MEMORY_OPTIMIZATION:
                 gc.collect()
 
-# ========== EXECUÃ‡ÃƒO ==========
 if __name__ == "__main__":
-    # Configurar logging
     logging.basicConfig(level=logging.WARNING)
     
-    # Configurar pÃ¡gina Streamlit
     st.set_page_config(
         page_title="Sistema de Alerta Inteligente",
         page_icon="ðŸ›¡ï¸",
