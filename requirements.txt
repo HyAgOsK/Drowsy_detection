@@ -4,3 +4,7 @@ ultralytics
 opencv-python
 edge-tpu-silva
 playsound
+streamlit
+numpy
+playsound
+threading
