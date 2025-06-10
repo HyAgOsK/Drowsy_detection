@@ -34,7 +34,7 @@ git clone https://github.com/HyAgOsK/Drowsy_detection.git
 cd Drowsy_detection/
 ```
 
-Create and activate a virtual environment - python=3.9 (recommended for Raspberry Pi 4/5):
+Create and activate a virtual environment (recommended for Raspberry Pi 4/5):
 
 ```bash
 python -m venv venv
@@ -82,8 +82,13 @@ project/
 │
 ├── alarm.wav
 ├── shape_predictor_68_face_landmarks.dat
-├── main_final.py                    # main script
-├── botsort.yaml              # YOLO tracker configuration
+├── app_yolo.py 
+├── app_mobilenet.py
+├── runs_MobilenetSSD_FPN_lite/
+|   └──saved_model/
+|   └── detect.tflite 
+|   └── detect_quant.tflite
+|   └── edgetpu.tflite    
 ├── runs_yolov5/
 │   └── detect/
 │       └── train/
