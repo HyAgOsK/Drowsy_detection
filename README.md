@@ -116,22 +116,6 @@ Opening a browser window at the IP address or localhost will display the webcam 
 
 ---
 
-## 🧠 Alert Logic
-
-- **Closed eyes** for 30 consecutive frames (Blink Ratio BR > 4.5) **and** YOLO detects `drowsy` ➜ Alert
-- **Head leaning forward** (DSC > 1.2) for 30 frames **and** YOLO detects `drowsy` ➜ Alert
-- YOLO detects `drowsy`, `phone`, or `smoking` for 30 frames ➜ Alert
-- Any **combination of 2 or more active alerts at the same time** ➜ Triggers an audible alert once
-
----
-
-## 📈 Performance
-
-- **FPS** displayed in real-time in app streamlit 
-- Compatible with **EdgeTPU** when a suitable `.tflite` model is loaded in `main.py`
-
----
-
 ## 📌 Final Notes
 
 - Ensure your YOLO model is trained for the expected classes: `drowsy`, `phone`, `smoking`, `seatbelt`, `awake`
