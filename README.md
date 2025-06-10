@@ -34,7 +34,7 @@ git clone https://github.com/HyAgOsK/Drowsy_detection.git
 cd Drowsy_detection/
 ```
 
-Create and activate a virtual environment (recommended for Raspberry Pi 4/5):
+Create and activate a virtual environment - python=3.9 (recommended for Raspberry Pi 4/5):
 
 ```bash
 python -m venv venv
